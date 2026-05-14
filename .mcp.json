@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+        "laravel-boost": {
+            "command": "/home/yakob/.config/herd-lite/bin/php",
+            "args": [
+                "artisan",
+                "boost:mcp"
+            ],
+            "cwd": "/home/yakob/programming/projects/personal/inventory-management-system"
+        }
+    }
+}
