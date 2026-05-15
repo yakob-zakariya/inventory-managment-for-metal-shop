@@ -22,6 +22,7 @@ class SaleForm
     {
         return $schema
             ->components([
+                // Customer & Dates
                 Select::make('customer_id')
                     ->relationship('customer', 'name')
                     ->searchable()
@@ -29,123 +30,140 @@ class SaleForm
                     ->createOptionForm([
                         TextInput::make('name')->required(),
                         TextInput::make('phone'),
+                        TextInput::make('address'),
                         TextInput::make('city'),
                     ])
-                    ->helperText('Leave empty for walk-in customers'),
+                    ->helperText('Leave empty for walk-in customers')
+                    ->columnSpan(2),
 
                 DatePicker::make('sale_date')
                     ->required()
-                    ->default(now()),
+                    ->default(now())
+                    ->columnSpan(1),
 
+                // Payment Type - THIS IS THE KEY FIELD
                 Select::make('payment_type')
-                    ->options(PaymentType::class)
+                    ->label('Payment Type')
+                    ->options([
+                        'cash' => 'Cash',
+                        'credit' => 'Credit',
+                    ])
                     ->required()
-                    ->default(PaymentType::CASH)
-                    ->reactive(),
+                    ->default('cash')
+                    ->live() // ✅ CRITICAL - Makes it reactive
+                    ->columnSpan(1),
 
                 Select::make('status')
                     ->options(SaleStatus::class)
                     ->required()
-                    ->default(SaleStatus::DRAFT),
+                    ->default(SaleStatus::DRAFT)
+                    ->columnSpan(1),
 
-                Section::make('Payment Details (Cash Only)')
+                Textarea::make('notes')
+                    ->rows(2)
+                    ->columnSpanFull(),
+
+                // ✅ PAYMENT SECTION - Shows/hides based on payment_type
+                Section::make('💰 Payment Details (Cash Only)')
                     ->schema([
                         Select::make('payment_account_id')
                             ->label('Payment Account')
                             ->options(\App\Models\Account::pluck('name', 'id'))
+                            ->required()
                             ->searchable()
                             ->preload()
-                            ->helperText('Required for cash sales'),
-                            
-                        Select::make('payment_method')
-                            ->options(PaymentMethod::class)
-                            ->default(PaymentMethod::CASH)
-                            ->helperText('Required for cash sales'),
-                    ])
-                    ->description('Payment will be recorded automatically for cash sales.')
-                    ->columnSpanFull()
-                    ->collapsible()
-                    ->collapsed(),
+                            ->helperText('Which account receives this payment?'),
 
-                Textarea::make('notes')
-                    ->rows(3)
-                    ->columnSpanFull(),
+                        Select::make('payment_method')
+                            ->label('Payment Method')
+                            ->options(PaymentMethod::class)
+                            ->required()
+                            ->default(PaymentMethod::CASH),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull()
+                    ->description('Payment will be automatically recorded when you save.')
+                    ->visible(fn ($get) => $get('payment_type') === 'cash'), // ✅ KEY LINE
 
                 Hidden::make('user_id')
                     ->default(Auth::id()),
 
-                // Sale Items Repeater
-                Repeater::make('items')
-                    ->relationship()
+                // Sale Items
+                Section::make('📦 Sale Items')
                     ->schema([
-                        Select::make('product_id')
-                            ->relationship('product', 'name')
+                        Repeater::make('items')
+                            ->relationship()
+                            ->schema([
+                                Select::make('product_id')
+                                    ->relationship('product', 'name')
+                                    ->required()
+                                    ->searchable()
+                                    ->preload()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, $set, $get) {
+                                        if ($state) {
+                                            $product = \App\Models\Product::find($state);
+                                            if ($product) {
+                                                $set('unit_price', $product->selling_price);
+                                                $quantity = $get('quantity') ?? 1;
+                                                $set('total_price', $quantity * $product->selling_price);
+                                            }
+                                        }
+                                    })
+                                    ->columnSpan(2),
+
+                                TextInput::make('quantity')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(0.01)
+                                    ->default(1)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(function ($state, $set, $get) {
+                                        $unitPrice = $get('unit_price') ?? 0;
+                                        $set('total_price', $state * $unitPrice);
+                                    })
+                                    ->columnSpan(1),
+
+                                TextInput::make('unit_price')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(0)
+                                    ->prefix('ETB')
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(function ($state, $set, $get) {
+                                        $quantity = $get('quantity') ?? 1;
+                                        $set('total_price', $quantity * $state);
+                                    })
+                                    ->columnSpan(1),
+
+                                TextInput::make('total_price')
+                                    ->numeric()
+                                    ->disabled()
+                                    ->dehydrated()
+                                    ->prefix('ETB')
+                                    ->columnSpan(1),
+                            ])
+                            ->columns(5)
+                            ->defaultItems(1)
+                            ->columnSpanFull()
                             ->required()
-                            ->searchable()
-                            ->preload()
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                if ($state) {
-                                    $product = \App\Models\Product::find($state);
-                                    if ($product) {
-                                        $set('unit_price', $product->selling_price);
-                                        // Recalculate total
-                                        $quantity = $get('quantity') ?? 0;
-                                        $set('total_price', $quantity * $product->selling_price);
-                                    }
+                            ->minItems(1)
+                            ->live()
+                            ->addActionLabel('+ Add Item'),
+
+                        Placeholder::make('grand_total')
+                            ->label('📊 TOTAL AMOUNT')
+                            ->content(function ($get): string {
+                                $items = $get('items') ?? [];
+                                $total = 0;
+                                foreach ($items as $item) {
+                                    $total += floatval($item['total_price'] ?? 0);
                                 }
+                                return '🏷️ ETB ' . number_format($total, 2);
                             }),
-
-                        TextInput::make('quantity')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0.01)
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                $unitPrice = $get('unit_price') ?? 0;
-                                $set('total_price', $state * $unitPrice);
-                            }),
-
-                        TextInput::make('unit_price')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0)
-                            ->prefix('$')
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                $quantity = $get('quantity') ?? 0;
-                                $set('total_price', $quantity * $state);
-                            }),
-
-                        TextInput::make('total_price')
-                            ->numeric()
-                            ->disabled()
-                            ->dehydrated()
-                            ->prefix('$'),
                     ])
-                    ->columns(4)
-                    ->defaultItems(1)
-                    ->columnSpanFull()
-                    ->required()
-                    ->minItems(1)
-                    ->live()
-                    ->afterStateUpdated(function ($state, callable $set) {
-                        // Calculate grand total
-                        $total = 0;
-                        if (is_array($state)) {
-                            foreach ($state as $item) {
-                                $total += $item['total_price'] ?? 0;
-                            }
-                        }
-                        $set('grand_total_display', $total);
-                    }),
-
-                Placeholder::make('grand_total_display')
-                    ->label('Grand Total')
-                    ->content(function (callable $get): string {
-                        return 'ETB ' . number_format($get('grand_total_display') ?? 0, 2);
-                    })
                     ->columnSpanFull(),
-            ]);
+            ])
+            ->columns(3);
     }
 }

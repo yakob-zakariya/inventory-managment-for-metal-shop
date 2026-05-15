@@ -7,120 +7,132 @@ use App\Enums\SaleStatus;
 use App\Filament\Resources\Sales\SaleResource;
 use App\Models\Account;
 use App\Models\Payment;
+use App\Models\Receivable;
 use App\Services\SaleService;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Notifications\Notification;
 
 class CreateSale extends CreateRecord
 {
     protected static string $resource = SaleResource::class;
 
-    /**
-     * Hook before creating the record
-     */
-    protected function beforeCreate(): void
-    {
-        // Validate payment fields for cash sales
-        $data = $this->data;
-        
-        // Check if payment_type is CASH (handle both enum instance and string value)
-        $isCash = false;
-        if (isset($data['payment_type'])) {
-            if ($data['payment_type'] instanceof PaymentType) {
-                $isCash = $data['payment_type'] === PaymentType::CASH;
-            } else {
-                $isCash = $data['payment_type'] === 'cash' || $data['payment_type'] === PaymentType::CASH->value;
-            }
-        }
-        
-        if ($isCash) {
-            if (empty($data['payment_account_id']) || empty($data['payment_method'])) {
-                // Show notification
-                \Filament\Notifications\Notification::make()
-                    ->danger()
-                    ->title('Validation Error')
-                    ->body('Payment account and payment method are required for cash sales.')
-                    ->send();
-                
-                // Halt the process
-                throw new \Filament\Support\Exceptions\Halt();
-            }
-        }
-    }
+    // Store payment data temporarily
+    protected $paymentAccountId;
+    protected $paymentMethod;
 
-    /**
-     * Mutate form data before creating the record
-     */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Remove payment fields from sale data (they're not in the sales table)
+        // Calculate total from items
+        $total = 0;
+        if (isset($data['items'])) {
+            foreach ($data['items'] as $item) {
+                $total += floatval($item['total_price'] ?? 0);
+            }
+        }
+        $data['total_amount'] = $total;
+
+        // ✅ Validate CASH sales (data is still string here, not enum)
+        if ($data['payment_type'] === 'cash') {
+            // Check payment fields are filled
+            if (empty($data['payment_account_id'])) {
+                Notification::make()
+                    ->danger()
+                    ->title('Validation Error')
+                    ->body('Payment account is required for cash sales.')
+                    ->send();
+                $this->halt();
+            }
+
+            // Store temporarily (not in sales table)
+            $this->paymentAccountId = $data['payment_account_id'];
+            $this->paymentMethod = $data['payment_method'] ?? 'cash';
+        }
+
+        // Remove payment fields from sale data
         unset($data['payment_account_id'], $data['payment_method']);
-        
+
         return $data;
     }
 
-    /**
-     * Hook that runs after the record and its relationships are saved
-     */
     protected function afterCreate(): void
     {
         $sale = $this->record;
-        $formData = $this->data;
 
-        // If sale was created with status "completed", process it
+        // ✅ 1. STOCK MOVEMENTS (if status is completed)
         if ($sale->status === SaleStatus::COMPLETED && $sale->items()->count() > 0) {
             try {
-                $service = app(SaleService::class);
-                $service->completeSale($sale);
+                app(SaleService::class)->completeSale($sale);
                 
-                \Filament\Notifications\Notification::make()
+                Notification::make()
                     ->success()
-                    ->title('Sale Completed')
-                    ->body('Stock has been updated automatically.')
+                    ->title('Stock Updated')
+                    ->body('Inventory updated automatically.')
                     ->send();
             } catch (\Exception $e) {
-                \Filament\Notifications\Notification::make()
+                Notification::make()
                     ->danger()
-                    ->title('Error')
+                    ->title('Stock Error')
                     ->body($e->getMessage())
                     ->send();
             }
         }
 
-        // If payment_type is CASH and payment_account_id is provided, create payment
-        if ($sale->payment_type === PaymentType::CASH && 
-            isset($formData['payment_account_id']) && 
-            $formData['payment_account_id']) {
-            
+        // ✅ 2. CASH SALE - Create payment
+        if ($sale->payment_type === PaymentType::CASH && $this->paymentAccountId) {
             try {
-                $account = Account::findOrFail($formData['payment_account_id']);
-                $totalAmount = $sale->total_amount;
+                $account = Account::findOrFail($this->paymentAccountId);
 
-                // Create payment record
+                // Create payment record with polymorphic relationship
                 Payment::create([
-                    'account_id' => $account->id,
                     'user_id' => $sale->user_id,
+                    'account_id' => $account->id,
                     'payable_type' => get_class($sale),
                     'payable_id' => $sale->id,
-                    'amount' => $totalAmount,
-                    'payment_method' => $formData['payment_method'] ?? 'cash',
+                    'amount' => $sale->total_amount,
+                    'payment_method' => $this->paymentMethod,
                     'payment_date' => $sale->sale_date,
-                    'notes' => 'Auto-created payment for cash sale',
+                    'notes' => "Cash payment for sale #{$sale->id}",
                 ]);
 
-                // Update account balance (money IN)
-                $account->balance += $totalAmount;
+                // ✅ INCREASE ACCOUNT BALANCE (money IN)
+                $account->balance += $sale->total_amount;
                 $account->save();
 
-                \Filament\Notifications\Notification::make()
+                Notification::make()
                     ->success()
                     ->title('Payment Recorded')
-                    ->body("Payment of $" . number_format($totalAmount, 2) . " recorded successfully.")
+                    ->body("ETB " . number_format($sale->total_amount, 2) . " received in {$account->name}")
                     ->send();
             } catch (\Exception $e) {
-                \Filament\Notifications\Notification::make()
+                Notification::make()
                     ->warning()
                     ->title('Payment Error')
-                    ->body('Sale created but payment failed: ' . $e->getMessage())
+                    ->body($e->getMessage())
+                    ->send();
+            }
+        }
+
+        // ✅ 3. CREDIT SALE - Create receivable
+        if ($sale->payment_type === PaymentType::CREDIT) {
+            try {
+                Receivable::create([
+                    'sale_id' => $sale->id,
+                    'customer_id' => $sale->customer_id,
+                    'amount' => $sale->total_amount,
+                    'remaining_balance' => $sale->total_amount,
+                    'due_date' => now()->addDays(30),
+                ]);
+
+                Notification::make()
+                    ->info()
+                    ->title('Credit Sale Created')
+                    ->body('Receivable record created. Due in 30 days.')
+                    ->send();
+            } catch (\Exception $e) {
+                Notification::make()
+                    ->warning()
+                    ->title('Receivable Error')
+                    ->body($e->getMessage())
                     ->send();
             }
         }
