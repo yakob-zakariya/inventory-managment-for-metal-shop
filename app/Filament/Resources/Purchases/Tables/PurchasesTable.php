@@ -6,12 +6,12 @@ use App\Enums\PaymentType;
 use App\Enums\PurchaseStatus;
 use App\Models\Purchase;
 use App\Services\PurchaseService;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
-use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -40,7 +40,7 @@ class PurchasesTable
                     ->toggleable(),
 
                 TextColumn::make('total_amount')
-                    ->money()
+                    // ->money()
                     ->sortable()
                     ->getStateUsing(fn ($record) => $record->total_amount),
 
@@ -77,7 +77,7 @@ class PurchasesTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
-                
+
                 // Complete Purchase Action
                 Action::make('complete')
                     ->label('Mark as Received')
@@ -91,7 +91,7 @@ class PurchasesTable
                         try {
                             $service = app(PurchaseService::class);
                             $service->completePurchase($record);
-                            
+
                             Notification::make()
                                 ->success()
                                 ->title('Purchase Completed')
@@ -105,7 +105,7 @@ class PurchasesTable
                                 ->send();
                         }
                     }),
-                
+
                 // Cancel Purchase Action
                 Action::make('cancel')
                     ->label('Cancel')
@@ -119,7 +119,7 @@ class PurchasesTable
                         try {
                             $service = app(PurchaseService::class);
                             $service->cancelPurchase($record);
-                            
+
                             Notification::make()
                                 ->success()
                                 ->title('Purchase Cancelled')

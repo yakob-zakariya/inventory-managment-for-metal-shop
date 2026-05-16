@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Sale extends Model
@@ -45,17 +46,15 @@ class Sale extends Model
         return $this->hasMany(SaleItem::class);
     }
 
-    // 🔜 Uncomment when Receivable model is created
-    // public function receivable(): HasOne
-    // {
-    //     return $this->hasOne(Receivable::class);
-    // }
+    public function receivable(): HasOne
+    {
+        return $this->hasOne(Receivable::class);
+    }
 
-    // 🔜 Uncomment when Payment model is created
-    // public function payments(): MorphMany
-    // {
-    //     return $this->morphMany(Payment::class, 'payable');
-    // }
+    public function payments(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'payable');
+    }
 
     public function stockMovements(): MorphMany
     {

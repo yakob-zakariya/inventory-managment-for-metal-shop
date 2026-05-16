@@ -3,8 +3,9 @@
 namespace App\Filament\Resources\Purchases\Schemas;
 
 use App\Enums\PaymentMethod;
-use App\Enums\PaymentType;
 use App\Enums\PurchaseStatus;
+use App\Models\Account;
+use App\Models\Product;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -73,7 +74,7 @@ class PurchaseForm
                     ->schema([
                         Select::make('payment_account_id')
                             ->label('Payment Account')
-                            ->options(\App\Models\Account::pluck('name', 'id'))
+                            ->options(Account::pluck('name', 'id'))
                             ->required()
                             ->searchable()
                             ->preload()
@@ -89,6 +90,58 @@ class PurchaseForm
                     ->columnSpanFull()
                     ->description('Payment will be automatically recorded when you save.')
                     ->visible(fn ($get) => $get('payment_type') === 'cash'), // ✅ KEY LINE
+
+                // ✅ PAYABLE SECTION - Shows when payment_type is 'credit' AND record exists
+                Section::make('📋 Payable Details (Credit)')
+                    ->schema([
+                        Placeholder::make('payable_amount')
+                            ->label('Total Amount')
+                            ->content(fn ($record) => $record && $record->payable
+                                ? 'ETB '.number_format($record->payable->amount, 2)
+                                : 'Not yet created'),
+
+                        Placeholder::make('payable_paid')
+                            ->label('Paid Amount')
+                            ->content(fn ($record) => $record && $record->payable
+                                ? 'ETB '.number_format($record->payable->paid_amount, 2)
+                                : '-'),
+
+                        Placeholder::make('payable_remaining')
+                            ->label('Remaining Balance')
+                            ->content(fn ($record) => $record && $record->payable
+                                ? 'ETB '.number_format($record->payable->remaining_balance, 2)
+                                : '-'),
+
+                        Placeholder::make('payable_due_date')
+                            ->label('Due Date')
+                            ->content(fn ($record) => $record && $record->payable && $record->payable->due_date
+                                ? $record->payable->due_date->format('M d, Y')
+                                : 'Not set'),
+
+                        Placeholder::make('payable_status')
+                            ->label('Status')
+                            ->content(function ($record) {
+                                if (! $record || ! $record->payable) {
+                                    return '⏳ Pending creation';
+                                }
+
+                                $payable = $record->payable;
+
+                                if ($payable->is_fully_paid) {
+                                    return '✅ Fully Paid';
+                                }
+
+                                if ($payable->is_overdue) {
+                                    return '🔴 Overdue';
+                                }
+
+                                return '⏳ Pending';
+                            }),
+                    ])
+                    ->columns(3)
+                    ->columnSpanFull()
+                    ->description('Payable will be created automatically when you save.')
+                    ->visible(fn ($get) => $get('payment_type') === 'credit'),
 
                 Hidden::make('user_id')
                     ->default(Auth::id()),
@@ -107,7 +160,7 @@ class PurchaseForm
                                     ->live()
                                     ->afterStateUpdated(function ($state, $set, $get) {
                                         if ($state) {
-                                            $product = \App\Models\Product::find($state);
+                                            $product = Product::find($state);
                                             if ($product) {
                                                 $set('unit_price', $product->cost_price);
                                                 $quantity = $get('quantity') ?? 1;
@@ -164,7 +217,8 @@ class PurchaseForm
                                 foreach ($items as $item) {
                                     $total += floatval($item['total_price'] ?? 0);
                                 }
-                                return '🏷️ ETB ' . number_format($total, 2);
+
+                                return '🏷️ ETB '.number_format($total, 2);
                             }),
                     ])
                     ->columnSpanFull(),
