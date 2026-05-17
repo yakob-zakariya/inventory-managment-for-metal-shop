@@ -13,6 +13,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
@@ -74,11 +75,69 @@ class PurchaseForm
                     ->schema([
                         Select::make('payment_account_id')
                             ->label('Payment Account')
-                            ->options(Account::pluck('name', 'id'))
+                            ->options(function () {
+                                return Account::query()
+                                    ->get()
+                                    ->mapWithKeys(function ($account) {
+                                        return [
+                                            $account->id => $account->name.' (Balance: ETB '.number_format($account->balance, 2).')',
+                                        ];
+                                    });
+                            })
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->helperText('Which account pays for this?'),
+                            ->live(onBlur: true)
+                            ->helperText('Select account with sufficient balance')
+                            ->afterStateUpdated(function ($state, $set, $get, $livewire) {
+                                if (! $state) {
+                                    return;
+                                }
+
+                                $account = Account::find($state);
+                                if (! $account) {
+                                    return;
+                                }
+
+                                // Get the total from items
+                                $items = $get('../../items') ?? [];
+                                $total = 0;
+                                foreach ($items as $item) {
+                                    $total += floatval($item['total_price'] ?? 0);
+                                }
+
+                                if ($total > 0 && $account->balance < $total) {
+                                    Notification::make()
+                                        ->danger()
+                                        ->title('Insufficient Balance')
+                                        ->body("Account '{$account->name}' has insufficient balance. Available: ETB ".number_format($account->balance, 2).', Required: ETB '.number_format($total, 2))
+                                        ->persistent()
+                                        ->send();
+                                }
+                            })
+                            ->rules([
+                                function () {
+                                    return function (string $attribute, $value, \Closure $fail) {
+                                        $account = Account::find($value);
+                                        if (! $account) {
+                                            $fail('Selected account not found.');
+
+                                            return;
+                                        }
+
+                                        // Get the total from the form
+                                        $items = request()->input('items', []);
+                                        $total = 0;
+                                        foreach ($items as $item) {
+                                            $total += floatval($item['total_price'] ?? 0);
+                                        }
+
+                                        if ($total > 0 && $account->balance < $total) {
+                                            $fail('Insufficient balance. Available: ETB '.number_format($account->balance, 2).', Required: ETB '.number_format($total, 2));
+                                        }
+                                    };
+                                },
+                            ]),
 
                         Select::make('payment_method')
                             ->label('Payment Method')
@@ -88,7 +147,7 @@ class PurchaseForm
                     ])
                     ->columns(2)
                     ->columnSpanFull()
-                    ->description('Payment will be automatically recorded when you save.')
+                    ->description('Payment will be automatically recorded when you save. Ensure the account has sufficient balance.')
                     ->visible(fn ($get) => $get('payment_type') === 'cash'), // ✅ KEY LINE
 
                 // ✅ PAYABLE SECTION - Shows when payment_type is 'credit' AND record exists

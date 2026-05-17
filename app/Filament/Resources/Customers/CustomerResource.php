@@ -18,10 +18,10 @@ class CustomerResource extends Resource
 {
     protected static ?string $model = Customer::class;
 
-    protected static string | BackedEnum | null $navigationIcon = 'heroicon-o-user-group';
-    
-    protected static string | UnitEnum | null $navigationGroup = 'Contacts';
-    
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
+
+    protected static string|UnitEnum|null $navigationGroup = 'Contacts';
+
     protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'name';
@@ -39,7 +39,8 @@ class CustomerResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\SalesRelationManager::class,
+            RelationManagers\ReceivablesRelationManager::class,
         ];
     }
 

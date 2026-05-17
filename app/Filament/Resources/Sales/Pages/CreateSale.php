@@ -9,8 +9,8 @@ use App\Models\Account;
 use App\Models\Payment;
 use App\Models\Receivable;
 use App\Services\SaleService;
-use Filament\Resources\Pages\CreateRecord;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\CreateRecord;
 
 class CreateSale extends CreateRecord
 {
@@ -18,6 +18,7 @@ class CreateSale extends CreateRecord
 
     // Store payment data temporarily
     protected $paymentAccountId;
+
     protected $paymentMethod;
 
     protected function mutateFormDataBeforeCreate(array $data): array
@@ -62,7 +63,7 @@ class CreateSale extends CreateRecord
         if ($sale->status === SaleStatus::COMPLETED && $sale->items()->count() > 0) {
             try {
                 app(SaleService::class)->completeSale($sale);
-                
+
                 Notification::make()
                     ->success()
                     ->title('Stock Updated')
@@ -101,7 +102,7 @@ class CreateSale extends CreateRecord
                 Notification::make()
                     ->success()
                     ->title('Payment Recorded')
-                    ->body("ETB " . number_format($sale->total_amount, 2) . " received in {$account->name}")
+                    ->body('ETB '.number_format($sale->total_amount, 2)." received in {$account->name}")
                     ->send();
             } catch (\Exception $e) {
                 Notification::make()
@@ -112,29 +113,7 @@ class CreateSale extends CreateRecord
             }
         }
 
-        // ✅ 3. CREDIT SALE - Create receivable
-        if ($sale->payment_type === PaymentType::CREDIT) {
-            try {
-                Receivable::create([
-                    'sale_id' => $sale->id,
-                    'customer_id' => $sale->customer_id,
-                    'amount' => $sale->total_amount,
-                    'remaining_balance' => $sale->total_amount,
-                    'due_date' => now()->addDays(30),
-                ]);
-
-                Notification::make()
-                    ->info()
-                    ->title('Credit Sale Created')
-                    ->body('Receivable record created. Due in 30 days.')
-                    ->send();
-            } catch (\Exception $e) {
-                Notification::make()
-                    ->warning()
-                    ->title('Receivable Error')
-                    ->body($e->getMessage())
-                    ->send();
-            }
-        }
+        // ✅ 3. CREDIT SALE - Receivable is created automatically by SaleService::completeSale()
+        // No need to create it here to avoid duplicates
     }
 }

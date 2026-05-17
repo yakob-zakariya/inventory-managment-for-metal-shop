@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Sales\Pages;
 
 use App\Enums\SaleStatus;
 use App\Filament\Resources\Sales\SaleResource;
+use App\Models\Product;
 use App\Services\SaleService;
 use Filament\Actions;
 use Filament\Notifications\Notification;
@@ -21,7 +22,7 @@ class EditSale extends EditRecord
     }
 
     /**
-     * Populate virtual payment fields from the related payment record
+     * Populate virtual payment fields and item cost/profit from the related records
      */
     protected function mutateFormDataBeforeFill(array $data): array
     {
@@ -31,6 +32,30 @@ class EditSale extends EditRecord
         if ($payment) {
             $data['payment_account_id'] = $payment->account_id;
             $data['payment_method'] = $payment->payment_method->value;
+        }
+
+        // Load items with their products to populate cost_price and item_profit
+        $items = $this->record->items()->with('product')->get();
+
+        if ($items->isNotEmpty()) {
+            $data['items'] = $items->map(function ($item) {
+                $itemData = [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'total_price' => $item->total_price,
+                ];
+
+                // Add cost_price and item_profit if product exists
+                if ($item->product) {
+                    $itemData['cost_price'] = $item->product->cost_price;
+                    $profit = ($item->unit_price - $item->product->cost_price) * $item->quantity;
+                    $itemData['item_profit'] = $profit;
+                }
+
+                return $itemData;
+            })->toArray();
         }
 
         return $data;

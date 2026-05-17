@@ -6,11 +6,12 @@ use App\Enums\PaymentType;
 use App\Enums\PurchaseStatus;
 use App\Filament\Resources\Purchases\PurchaseResource;
 use App\Models\Account;
-use App\Models\Payment;
 use App\Models\Payable;
+use App\Models\Payment;
 use App\Services\PurchaseService;
-use Filament\Resources\Pages\CreateRecord;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\CreateRecord;
+use Filament\Support\Exceptions\Halt;
 
 class CreatePurchase extends CreateRecord
 {
@@ -18,6 +19,7 @@ class CreatePurchase extends CreateRecord
 
     // Store payment data temporarily
     protected $paymentAccountId;
+
     protected $paymentMethod;
 
     protected function mutateFormDataBeforeCreate(array $data): array
@@ -31,32 +33,9 @@ class CreatePurchase extends CreateRecord
         }
         $data['total_amount'] = $total;
 
-        // ✅ Validate CASH purchases (data is still string here, not enum)
+        // Store payment data temporarily for cash purchases
         if ($data['payment_type'] === 'cash') {
-            // Check payment fields are filled
-            if (empty($data['payment_account_id'])) {
-                Notification::make()
-                    ->danger()
-                    ->title('Validation Error')
-                    ->body('Payment account is required for cash purchases.')
-                    ->send();
-                $this->halt();
-            }
-
-            // Check account balance
-            $account = Account::find($data['payment_account_id']);
-            if ($account && $account->balance < $total) {
-                Notification::make()
-                    ->danger()
-                    ->title('Insufficient Balance')
-                    ->body("Account '{$account->name}' has only ETB " . number_format($account->balance, 2) . 
-                           " but needs ETB " . number_format($total, 2))
-                    ->send();
-                $this->halt();
-            }
-
-            // Store temporarily (not in purchases table)
-            $this->paymentAccountId = $data['payment_account_id'];
+            $this->paymentAccountId = $data['payment_account_id'] ?? null;
             $this->paymentMethod = $data['payment_method'] ?? 'cash';
         }
 
@@ -64,6 +43,53 @@ class CreatePurchase extends CreateRecord
         unset($data['payment_account_id'], $data['payment_method']);
 
         return $data;
+    }
+
+    protected function beforeCreate(): void
+    {
+        // ✅ Validate CASH purchases BEFORE creating the record
+        $data = $this->data;
+
+        if ($data['payment_type'] === 'cash') {
+            // Check payment fields are filled
+            if (empty($this->paymentAccountId)) {
+                Notification::make()
+                    ->danger()
+                    ->title('Validation Error')
+                    ->body('Payment account is required for cash purchases.')
+                    ->persistent()
+                    ->send();
+
+                throw new Halt;
+            }
+
+            // Check account balance
+            $account = Account::find($this->paymentAccountId);
+            if (! $account) {
+                Notification::make()
+                    ->danger()
+                    ->title('Validation Error')
+                    ->body('Selected account not found.')
+                    ->persistent()
+                    ->send();
+
+                throw new Halt;
+            }
+
+            $total = $data['total_amount'] ?? 0;
+
+            if ($total > 0 && $account->balance < $total) {
+                Notification::make()
+                    ->danger()
+                    ->title('Insufficient Balance')
+                    ->body("Account '{$account->name}' has only ETB ".number_format($account->balance, 2).
+                           ' but purchase total is ETB '.number_format($total, 2).'. Please add funds to the account first or select a different account.')
+                    ->persistent()
+                    ->send();
+
+                throw new Halt;
+            }
+        }
     }
 
     protected function afterCreate(): void
@@ -74,7 +100,7 @@ class CreatePurchase extends CreateRecord
         if ($purchase->status === PurchaseStatus::COMPLETED) {
             try {
                 app(PurchaseService::class)->completePurchase($purchase);
-                
+
                 Notification::make()
                     ->success()
                     ->title('Stock Updated')
@@ -114,7 +140,7 @@ class CreatePurchase extends CreateRecord
                 Notification::make()
                     ->success()
                     ->title('Payment Recorded')
-                    ->body("ETB " . number_format($purchase->total_amount, 2) . " paid from {$account->name}")
+                    ->body('ETB '.number_format($purchase->total_amount, 2)." paid from {$account->name}")
                     ->send();
             } catch (\Exception $e) {
                 Notification::make()
@@ -125,30 +151,7 @@ class CreatePurchase extends CreateRecord
             }
         }
 
-        // ✅ 3. CREDIT PURCHASE - Create payable
-        // CRITICAL FIX: Compare with PaymentType::CREDIT enum, not string 'credit'
-        if ($purchase->payment_type === PaymentType::CREDIT) {
-            try {
-                Payable::create([
-                    'purchase_id' => $purchase->id,
-                    'supplier_id' => $purchase->supplier_id,
-                    'amount' => $purchase->total_amount,
-                    'remaining_balance' => $purchase->total_amount,
-                    'due_date' => now()->addDays(30),
-                ]);
-
-                Notification::make()
-                    ->info()
-                    ->title('Credit Purchase Created')
-                    ->body('Payable record created. Due in 30 days.')
-                    ->send();
-            } catch (\Exception $e) {
-                Notification::make()
-                    ->warning()
-                    ->title('Payable Error')
-                    ->body($e->getMessage())
-                    ->send();
-            }
-        }
+        // ✅ 3. CREDIT PURCHASE - Payable is created automatically by PurchaseService::completePurchase()
+        // No need to create it here to avoid duplicates
     }
 }
