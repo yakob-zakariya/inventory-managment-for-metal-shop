@@ -266,7 +266,9 @@ class PurchaseForm
                             ->required()
                             ->minItems(1)
                             ->live()
-                            ->addActionLabel('+ Add Item'),
+                            ->addActionLabel('+ Add Item')
+                            ->collapsible()
+                            ->itemLabel(fn (array $state): ?string => Product::find($state['product_id'])?->name ?? 'New Item'),
 
                         Placeholder::make('grand_total')
                             ->label('📊 TOTAL AMOUNT')

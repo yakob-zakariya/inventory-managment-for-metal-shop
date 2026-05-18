@@ -319,7 +319,9 @@ class SaleForm
                             ->addActionLabel('+ Add Item')
                             ->deleteAction(
                                 fn ($action) => $action->requiresConfirmation()
-                            ),
+                            )
+                            ->collapsible()
+                            ->itemLabel(fn (array $state): ?string => Product::find($state['product_id'])?->name ?? 'New Item'),
 
                         // ✅ TOTALS - Clean grid layout
                         Grid::make(2)
