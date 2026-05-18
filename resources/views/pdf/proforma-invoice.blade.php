@@ -305,7 +305,7 @@
             padding: 6px;
             text-align: center;
             font-weight: bold;
-            font-size: 9pt;
+            font-size: 12pt;
             margin-bottom: 5px;
         }
         
