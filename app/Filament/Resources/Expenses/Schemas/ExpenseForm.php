@@ -2,15 +2,15 @@
 
 namespace App\Filament\Resources\Expenses\Schemas;
 
+use App\Enums\PaymentMethod;
+use App\Models\Account;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
-use App\Enums\PaymentMethod;
 use Filament\Schemas\Components\Section;
-
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 
@@ -40,7 +40,7 @@ class ExpenseForm
                 TextInput::make('amount')
                     ->required()
                     ->numeric()
-                    ->prefix('$')
+                    ->prefix('ETB')
                     ->minValue(0.01),
 
                 DatePicker::make('expense_date')
@@ -61,25 +61,24 @@ class ExpenseForm
                     ->schema([
                         Select::make('payment_account_id')
                             ->label('Payment Account')
-                            ->options(\App\Models\Account::pluck('name', 'id'))
+                            ->options(Account::pluck('name', 'id'))
                             ->required()
                             ->searchable()
                             ->preload(),
-                            
+
                         Select::make('payment_method')
-                            ->options(\App\Enums\PaymentMethod::class)
+                            ->options(PaymentMethod::class)
                             ->required()
-                            ->default(\App\Enums\PaymentMethod::CASH),
+                            ->default(PaymentMethod::CASH),
                     ])
                     ->visible(fn ($context) => $context === 'create')
                     ->description('Payment will be recorded automatically when expense is created'),
 
-
                 // Display payment status (read-only)
                 Placeholder::make('payment_status')
                     ->label('Payment Status')
-                    ->content(fn ($record) => $record ? 
-                        ($record->is_fully_paid ? '✅ Fully Paid' : '⚠️ Unpaid: $' . number_format($record->remaining_balance, 2)) 
+                    ->content(fn ($record) => $record ?
+                        ($record->is_fully_paid ? '✅ Fully Paid' : '⚠️ Unpaid: $'.number_format($record->remaining_balance, 2))
                         : 'Not yet saved')
                     ->hidden(fn ($context) => $context === 'create'),
             ]);

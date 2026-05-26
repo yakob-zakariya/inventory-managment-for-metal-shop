@@ -26,17 +26,17 @@ class PayablesTable
                     ->sortable(),
 
                 TextColumn::make('amount')
-                    ->money()
+                    ->money('ETB')
                     ->sortable(),
 
                 TextColumn::make('paid_amount')
-                    ->money()
+                    ->money('ETB')
                     ->sortable()
                     ->getStateUsing(fn ($record) => $record->paid_amount)
                     ->color('success'),
 
                 TextColumn::make('remaining_balance')
-                    ->money()
+                    ->money('ETB')
                     ->sortable()
                     ->color(fn ($state) => $state > 0 ? 'danger' : 'success'),
 
@@ -48,7 +48,7 @@ class PayablesTable
                 TextColumn::make('status')
                     ->badge()
                     ->getStateUsing(fn ($record) => $record->is_fully_paid ? 'Paid' : ($record->is_overdue ? 'Overdue' : 'Pending'))
-                    ->color(fn ($state) => match($state) {
+                    ->color(fn ($state) => match ($state) {
                         'Paid' => 'success',
                         'Overdue' => 'danger',
                         'Pending' => 'warning',

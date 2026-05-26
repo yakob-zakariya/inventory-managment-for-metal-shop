@@ -16,8 +16,8 @@ class BusinessValueOverview extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        // Calculate total inventory value (current_stock × cost_price)
-        $inventoryValue = Product::selectRaw('SUM(current_stock * cost_price) as total_value')
+        // Calculate total inventory value (current_stock × purchase_price only)
+        $inventoryValue = Product::selectRaw('SUM(current_stock * purchase_price) as total_value')
             ->value('total_value') ?? 0;
 
         // Calculate total account balances

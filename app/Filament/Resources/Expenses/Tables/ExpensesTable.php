@@ -27,17 +27,17 @@ class ExpensesTable
                     ->badge(),
 
                 TextColumn::make('amount')
-                    ->money()
+                    ->money('ETB')
                     ->sortable(),
 
                 TextColumn::make('paid_amount')
-                    ->money()
+                    ->money('ETB')
                     ->sortable()
                     ->getStateUsing(fn ($record) => $record->paid_amount)
                     ->color('success'),
 
                 TextColumn::make('remaining_balance')
-                    ->money()
+                    ->money('ETB')
                     ->sortable()
                     ->getStateUsing(fn ($record) => $record->remaining_balance)
                     ->color(fn ($state) => $state > 0 ? 'warning' : 'success'),

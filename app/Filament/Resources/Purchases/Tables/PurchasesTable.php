@@ -40,7 +40,7 @@ class PurchasesTable
                     ->toggleable(),
 
                 TextColumn::make('total_amount')
-                    // ->money()
+                    // ->money('ETB')
                     ->sortable()
                     ->getStateUsing(fn ($record) => $record->total_amount),
 

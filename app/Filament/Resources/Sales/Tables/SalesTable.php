@@ -6,6 +6,7 @@ use App\Enums\PaymentType;
 use App\Enums\SaleStatus;
 use App\Models\Sale;
 use App\Services\SaleService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -37,7 +38,7 @@ class SalesTable
                     ->sortable(),
 
                 TextColumn::make('total_amount')
-                    ->money()
+                    ->money('ETB')
                     ->sortable()
                     ->getStateUsing(fn ($record) => $record->total_amount),
 
@@ -74,7 +75,44 @@ class SalesTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
-                
+
+                // Generate Receipt Action
+                Action::make('receipt')
+                    ->label('Receipt')
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->action(function (Sale $record) {
+                        // Prepare data for PDF
+                        $items = $record->items->map(function ($item) {
+                            return [
+                                'product_name' => $item->product->name,
+                                'quantity' => $item->quantity,
+                                'unit_price' => $item->unit_price,
+                                'total_price' => $item->total_price,
+                            ];
+                        });
+
+                        $pdfData = [
+                            'customer_name' => $record->customer?->name ?? 'Walk-in Customer',
+                            'receipt_number' => 'SR-'.str_pad($record->id, 6, '0', STR_PAD_LEFT),
+                            'sale_date' => $record->sale_date->format('d.m.Y'),
+                            'status' => $record->status->label(),
+                            'items' => $items,
+                            'total_amount' => $record->total_amount,
+                            'payment_type' => $record->payment_type->label(),
+                            'payment_method' => $record->payment?->payment_method?->label(),
+                            'payment_account' => $record->payment?->account?->name,
+                        ];
+
+                        // Generate PDF
+                        $pdf = Pdf::loadView('pdf.sales-receipt', $pdfData);
+
+                        // Download
+                        return response()->streamDownload(function () use ($pdf) {
+                            echo $pdf->output();
+                        }, 'sales-receipt-'.$record->id.'-'.now()->format('Y-m-d').'.pdf');
+                    }),
+
                 // Complete Sale Action
                 Action::make('complete')
                     ->label('Complete Sale')
@@ -88,7 +126,7 @@ class SalesTable
                         try {
                             $service = app(SaleService::class);
                             $service->completeSale($record);
-                            
+
                             Notification::make()
                                 ->success()
                                 ->title('Sale Completed')
@@ -102,7 +140,7 @@ class SalesTable
                                 ->send();
                         }
                     }),
-                
+
                 // Cancel Sale Action
                 Action::make('cancel')
                     ->label('Cancel')
@@ -116,7 +154,7 @@ class SalesTable
                         try {
                             $service = app(SaleService::class);
                             $service->cancelSale($record);
-                            
+
                             Notification::make()
                                 ->success()
                                 ->title('Sale Cancelled')

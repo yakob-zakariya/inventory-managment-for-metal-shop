@@ -82,11 +82,11 @@ class ProformaInvoiceGenerator extends Page
                                                     $set('unit_price', $product->selling_price);
                                                     $set('unit', $product->unit);
                                                     $set('current_stock', $product->current_stock);
-                                                    $set('cost_price', $product->cost_price);
+                                                    $set('cost_price', $product->total_cost);
 
                                                     // Calculate profit
                                                     $quantity = $get('quantity') ?? 1;
-                                                    $profit = ($product->selling_price - $product->cost_price) * $quantity;
+                                                    $profit = ($product->selling_price - $product->total_cost) * $quantity;
                                                     $set('profit', $profit);
                                                 }
                                             }
@@ -111,7 +111,7 @@ class ProformaInvoiceGenerator extends Page
                                                 $product = Product::find($productId);
                                                 if ($product) {
                                                     $unitPrice = $get('unit_price') ?? $product->selling_price;
-                                                    $costPrice = $get('cost_price') ?? $product->cost_price;
+                                                    $costPrice = $get('cost_price') ?? $product->total_cost;
                                                     $profit = ($unitPrice - $costPrice) * $state;
                                                     $set('profit', $profit);
                                                 }

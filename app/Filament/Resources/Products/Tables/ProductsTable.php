@@ -2,13 +2,14 @@
 
 namespace App\Filament\Resources\Products\Tables;
 
+use App\Models\Product;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use App\Models\Product;
 
 class ProductsTable
 {
@@ -17,23 +18,28 @@ class ProductsTable
         return $table
             ->columns([
                 TextColumn::make('name')
-                ->searchable(),
+                    ->searchable(),
                 TextColumn::make('category.name'),
                 TextColumn::make('unit')
                     ->badge()
                     ->searchable(),
-                TextColumn::make('cost_price')
-                    ->money()
+                TextColumn::make('purchase_price')
+                    ->label('Purchase Price')
+                    ->money('ETB')
+                    ->sortable(),
+                TextColumn::make('additional_costs')
+                    ->label('Add. Costs')
+                    ->money('ETB')
                     ->sortable(),
                 TextColumn::make('selling_price')
-                    ->money()
+                    ->money('ETB')
                     ->sortable(),
                 TextColumn::make('current_stock')
-                ->label('Stock')
-                ->numeric(decimalPlaces: 2)
-                ->color(fn (Product $record) => $record->isLowStock() ? 'danger' : 'success')
-                ->badge()
-                ->suffix(fn (Product $record) => ' ' . $record->unit->value),
+                    ->label('Stock')
+                    ->numeric(decimalPlaces: 2)
+                    ->color(fn (Product $record) => $record->isLowStock() ? 'danger' : 'success')
+                    ->badge()
+                    ->suffix(fn (Product $record) => ' '.$record->unit->value),
                 TextColumn::make('minimum_stock_alert')
                     ->label('minimum-stock')
                     ->numeric()
@@ -49,7 +55,10 @@ class ProductsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('category')
+                    ->relationship('category', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
             ->recordActions([
                 EditAction::make(),

@@ -2,13 +2,13 @@
 
 namespace App\Filament\Resources\Payments\Tables;
 
+use App\Enums\PaymentMethod;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use App\Enums\PaymentMethod;
 
 class PaymentsTable
 {
@@ -31,7 +31,7 @@ class PaymentsTable
                     ->formatStateUsing(fn ($record) => "#{$record->payable_id}"),
 
                 TextColumn::make('amount')
-                    ->money()
+                    ->money('ETB')
                     ->sortable()
                     ->color('success'),
 

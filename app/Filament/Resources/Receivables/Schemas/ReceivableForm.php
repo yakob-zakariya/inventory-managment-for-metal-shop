@@ -29,14 +29,14 @@ class ReceivableForm
 
                 TextInput::make('amount')
                     ->numeric()
-                    ->prefix('$')
+                    ->prefix('ETB')
                     ->disabled()
                     ->dehydrated(false)
                     ->helperText('Total amount from sale'),
 
                 TextInput::make('remaining_balance')
                     ->numeric()
-                    ->prefix('$')
+                    ->prefix('ETB')
                     ->disabled()
                     ->dehydrated(false)
                     ->helperText('Amount still owed by customer'),
@@ -46,8 +46,8 @@ class ReceivableForm
 
                 Placeholder::make('payment_status')
                     ->label('Payment Status')
-                    ->content(fn ($record) => $record ? 
-                        ($record->is_fully_paid ? '✅ Fully Paid' : '⚠️ Balance Due: $' . number_format($record->remaining_balance, 2)) 
+                    ->content(fn ($record) => $record ?
+                        ($record->is_fully_paid ? '✅ Fully Paid' : '⚠️ Balance Due: $'.number_format($record->remaining_balance, 2))
                         : 'Not yet saved')
                     ->hidden(fn ($context) => $context === 'create'),
             ]);

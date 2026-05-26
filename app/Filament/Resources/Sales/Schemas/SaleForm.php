@@ -161,11 +161,11 @@ class SaleForm
                                         if ($state) {
                                             $product = Product::find($state);
                                             if ($product) {
-                                                $set('cost_price', $product->cost_price);
+                                                $set('cost_price', $product->total_cost);
 
                                                 $quantity = $get('quantity') ?? 0;
                                                 $unitPrice = $get('unit_price') ?? 0;
-                                                $profit = ($unitPrice - $product->cost_price) * $quantity;
+                                                $profit = ($unitPrice - $product->total_cost) * $quantity;
                                                 $set('item_profit', $profit);
                                             }
                                         }
@@ -176,14 +176,14 @@ class SaleForm
                                             if ($product) {
                                                 // Set prices
                                                 $set('unit_price', $product->selling_price);
-                                                $set('cost_price', $product->cost_price);
+                                                $set('cost_price', $product->total_cost);
 
                                                 $quantity = $get('quantity') ?? 1;
                                                 $total = $quantity * $product->selling_price;
                                                 $set('total_price', $total);
 
                                                 // Calculate profit
-                                                $profit = ($product->selling_price - $product->cost_price) * $quantity;
+                                                $profit = ($product->selling_price - $product->total_cost) * $quantity;
                                                 $set('item_profit', $profit);
                                             }
                                         }
@@ -279,7 +279,7 @@ class SaleForm
                                     ->prefix('ETB')
                                     ->helperText('Auto-filled from product')
                                     ->extraAttributes(['class' => 'text-gray-600'])
-                                    ->default(fn ($get) => $get('product_id') ? Product::find($get('product_id'))?->cost_price : null)
+                                    ->default(fn ($get) => $get('product_id') ? Product::find($get('product_id'))?->total_cost : null)
                                     ->columnSpan(2),
 
                                 TextInput::make('item_profit')
@@ -306,7 +306,7 @@ class SaleForm
                                             return 0;
                                         }
 
-                                        return ($unitPrice - $product->cost_price) * $quantity;
+                                        return ($unitPrice - $product->total_cost) * $quantity;
                                     })
                                     ->columnSpan(3),
                             ])

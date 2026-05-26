@@ -3,6 +3,11 @@
 namespace App\Filament\Resources\Payments\Schemas;
 
 use App\Enums\PaymentMethod;
+use App\Models\Expense;
+use App\Models\Payable;
+use App\Models\Purchase;
+use App\Models\Receivable;
+use App\Models\Sale;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
@@ -41,30 +46,32 @@ class PaymentForm
                     ->label('Select Transaction')
                     ->options(function (callable $get) {
                         $type = $get('payable_type');
-                        if (!$type) return [];
+                        if (! $type) {
+                            return [];
+                        }
 
-                        return match($type) {
-                            'App\\Models\\Purchase' => \App\Models\Purchase::query()
+                        return match ($type) {
+                            'App\\Models\\Purchase' => Purchase::query()
                                 ->with('supplier')
                                 ->get()
-                                ->mapWithKeys(fn($p) => [$p->id => "Purchase #{$p->id} - {$p->supplier->name} - $" . number_format($p->total_amount, 2)]),
-                            'App\\Models\\Sale' => \App\Models\Sale::query()
+                                ->mapWithKeys(fn ($p) => [$p->id => "Purchase #{$p->id} - {$p->supplier->name} - $".number_format($p->total_amount, 2)]),
+                            'App\\Models\\Sale' => Sale::query()
                                 ->with('customer')
                                 ->get()
-                                ->mapWithKeys(fn($s) => [$s->id => "Sale #{$s->id} - " . ($s->customer?->name ?? 'Walk-in') . " - $" . number_format($s->total_amount, 2)]),
-                            'App\\Models\\Expense' => \App\Models\Expense::query()
+                                ->mapWithKeys(fn ($s) => [$s->id => "Sale #{$s->id} - ".($s->customer?->name ?? 'Walk-in').' - $'.number_format($s->total_amount, 2)]),
+                            'App\\Models\\Expense' => Expense::query()
                                 ->get()
-                                ->mapWithKeys(fn($e) => [$e->id => "{$e->category} - $" . number_format($e->amount, 2) . " - " . $e->expense_date->format('Y-m-d')]),
-                            'App\\Models\\Payable' => \App\Models\Payable::query()
+                                ->mapWithKeys(fn ($e) => [$e->id => "{$e->category} - $".number_format($e->amount, 2).' - '.$e->expense_date->format('Y-m-d')]),
+                            'App\\Models\\Payable' => Payable::query()
                                 ->with('supplier')
                                 ->where('remaining_balance', '>', 0)
                                 ->get()
-                                ->mapWithKeys(fn($p) => [$p->id => "Payable #{$p->id} - {$p->supplier->name} - Balance: $" . number_format($p->remaining_balance, 2)]),
-                            'App\\Models\\Receivable' => \App\Models\Receivable::query()
+                                ->mapWithKeys(fn ($p) => [$p->id => "Payable #{$p->id} - {$p->supplier->name} - Balance: $".number_format($p->remaining_balance, 2)]),
+                            'App\\Models\\Receivable' => Receivable::query()
                                 ->with('customer')
                                 ->where('remaining_balance', '>', 0)
                                 ->get()
-                                ->mapWithKeys(fn($r) => [$r->id => "Receivable #{$r->id} - {$r->customer->name} - Balance: $" . number_format($r->remaining_balance, 2)]),
+                                ->mapWithKeys(fn ($r) => [$r->id => "Receivable #{$r->id} - {$r->customer->name} - Balance: $".number_format($r->remaining_balance, 2)]),
                             default => [],
                         };
                     })
@@ -74,7 +81,7 @@ class PaymentForm
                 TextInput::make('amount')
                     ->required()
                     ->numeric()
-                    ->prefix('$')
+                    ->prefix('ETB')
                     ->minValue(0.01)
                     ->helperText('Amount to pay'),
 

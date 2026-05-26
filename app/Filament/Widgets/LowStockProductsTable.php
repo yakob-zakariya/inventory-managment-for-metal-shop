@@ -62,8 +62,8 @@ class LowStockProductsTable extends TableWidget
                     ->badge()
                     ->color('gray'),
 
-                TextColumn::make('cost_price')
-                    ->label('Cost Price')
+                TextColumn::make('purchase_price')
+                    ->label('Purchase Price')
                     ->money('ETB')
                     ->sortable(),
 
@@ -75,8 +75,8 @@ class LowStockProductsTable extends TableWidget
                 TextColumn::make('stock_value')
                     ->label('Stock Value')
                     ->money('ETB')
-                    ->state(fn ($record) => $record->current_stock * $record->cost_price)
-                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderByRaw("current_stock * cost_price {$direction}")),
+                    ->state(fn ($record) => $record->current_stock * $record->purchase_price)
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderByRaw("current_stock * purchase_price {$direction}")),
             ])
             ->defaultSort('current_stock', 'asc')
             ->paginated([10, 25, 50]);

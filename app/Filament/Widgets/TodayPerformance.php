@@ -23,7 +23,7 @@ class TodayPerformance extends StatsOverviewWidget
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->whereDate('sales.sale_date', now()->toDateString())
-            ->selectRaw('SUM((sale_items.unit_price - products.cost_price) * sale_items.quantity) as profit')
+            ->selectRaw('SUM((sale_items.unit_price - (products.purchase_price + COALESCE(products.additional_costs, 0))) * sale_items.quantity) as profit')
             ->value('profit') ?? 0;
 
         return [

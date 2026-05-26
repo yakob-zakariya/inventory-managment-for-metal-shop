@@ -221,9 +221,9 @@ class PurchaseForm
                                         if ($state) {
                                             $product = Product::find($state);
                                             if ($product) {
-                                                $set('unit_price', $product->cost_price);
+                                                $set('unit_price', $product->purchase_price);
                                                 $quantity = $get('quantity') ?? 1;
-                                                $set('total_price', $quantity * $product->cost_price);
+                                                $set('total_price', $quantity * $product->purchase_price);
                                             }
                                         }
                                     })

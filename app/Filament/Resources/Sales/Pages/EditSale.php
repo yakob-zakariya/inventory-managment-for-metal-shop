@@ -49,8 +49,8 @@ class EditSale extends EditRecord
 
                 // Add cost_price and item_profit if product exists
                 if ($item->product) {
-                    $itemData['cost_price'] = $item->product->cost_price;
-                    $profit = ($item->unit_price - $item->product->cost_price) * $item->quantity;
+                    $itemData['cost_price'] = $item->product->total_cost;
+                    $profit = ($item->unit_price - $item->product->total_cost) * $item->quantity;
                     $itemData['item_profit'] = $profit;
                 }
 

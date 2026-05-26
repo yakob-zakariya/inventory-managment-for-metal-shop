@@ -26,7 +26,7 @@ class MonthlyPerformance extends StatsOverviewWidget
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->whereMonth('sales.sale_date', now()->month)
             ->whereYear('sales.sale_date', now()->year)
-            ->selectRaw('SUM((sale_items.unit_price - products.cost_price) * sale_items.quantity) as profit')
+            ->selectRaw('SUM((sale_items.unit_price - (products.purchase_price + COALESCE(products.additional_costs, 0))) * sale_items.quantity) as profit')
             ->value('profit') ?? 0;
 
         // Calculate this month's expenses
@@ -74,7 +74,7 @@ class MonthlyPerformance extends StatsOverviewWidget
                 ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
                 ->join('products', 'sale_items.product_id', '=', 'products.id')
                 ->whereDate('sales.sale_date', $date)
-                ->selectRaw('SUM((sale_items.unit_price - products.cost_price) * sale_items.quantity) as profit')
+                ->selectRaw('SUM((sale_items.unit_price - (products.purchase_price + COALESCE(products.additional_costs, 0))) * sale_items.quantity) as profit')
                 ->value('profit');
 
             $profits[] = $profit ?? 0;

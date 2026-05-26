@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\UnitType;
-
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
@@ -12,7 +11,8 @@ class Product extends Model
         'category_id',
         'name',
         'unit',
-        'cost_price',
+        'purchase_price',
+        'additional_costs',
         'selling_price',
         'minimum_stock_alert',
         'image',
@@ -20,11 +20,20 @@ class Product extends Model
 
     protected $casts = [
         'unit' => UnitType::class, // ✅ Cast to enum
-        'cost_price' => 'decimal:2',
+        'purchase_price' => 'decimal:2',
+        'additional_costs' => 'decimal:2',
         'selling_price' => 'decimal:2',
         'current_stock' => 'decimal:2', // ✅ ADD THIS
         'minimum_stock_alert' => 'decimal:2',
     ];
+
+    /**
+     * Get the total cost (purchase price + additional costs)
+     */
+    public function getTotalCostAttribute(): float
+    {
+        return $this->purchase_price + ($this->additional_costs ?? 0);
+    }
 
     public function category()
     {
@@ -33,16 +42,16 @@ class Product extends Model
 
     public function stockMovements()
     {
-    return $this->hasMany(StockMovement::class);
+        return $this->hasMany(StockMovement::class);
     }
 
-      // ✅ Helper: Check if stock is low
+    // ✅ Helper: Check if stock is low
     public function isLowStock(): bool
     {
         if ($this->minimum_stock_alert === null) {
             return false;
         }
+
         return $this->current_stock <= $this->minimum_stock_alert;
     }
-
 }
