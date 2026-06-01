@@ -74,9 +74,9 @@ class ProductCatalog extends Page
                                 ->default(true),
 
                             Checkbox::make('include_cost_price')
-                                ->label('Include Cost Price (with Other Costs column)')
+                                ->label('Include Cost Price (with Additional Costs column)')
                                 ->default(false)
-                                ->helperText('For internal use only. Adds an empty "Other Costs" column for manual calculations.'),
+                                ->helperText('For internal use only. Shows Purchase Price and Additional Costs columns.'),
                         ])
                         ->columns(2),
                 ])

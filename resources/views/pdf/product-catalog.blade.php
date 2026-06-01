@@ -164,6 +164,96 @@
                 padding: 10mm;
             }
         }
+        
+        /* Mobile/Screen optimization */
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 10px;
+                font-size: 12pt;
+            }
+            
+            .company-name {
+                font-size: 18pt;
+            }
+            
+            .doc-title {
+                font-size: 14pt;
+            }
+            
+            .contact-info {
+                font-size: 9pt;
+                line-height: 1.5;
+            }
+            
+            .info-bar {
+                font-size: 10pt;
+                padding: 10px;
+            }
+            
+            .info-left,
+            .info-right {
+                float: none;
+                display: block;
+                margin-bottom: 5px;
+            }
+            
+            /* Make table scrollable horizontally */
+            table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            th, td {
+                font-size: 11pt;
+                padding: 8px 10px;
+            }
+            
+            /* Increase touch targets */
+            th {
+                padding: 10px;
+            }
+            
+            .footer {
+                font-size: 9pt;
+                line-height: 1.6;
+            }
+        }
+        
+        /* Extra small devices */
+        @media screen and (max-width: 480px) {
+            body {
+                padding: 5px;
+                font-size: 11pt;
+            }
+            
+            .company-name {
+                font-size: 16pt;
+            }
+            
+            .doc-title {
+                font-size: 13pt;
+            }
+            
+            .contact-info {
+                font-size: 8pt;
+            }
+            
+            .info-bar {
+                font-size: 9pt;
+                padding: 8px;
+            }
+            
+            th, td {
+                font-size: 10pt;
+                padding: 6px 8px;
+            }
+            
+            .footer {
+                font-size: 8pt;
+            }
+        }
     </style>
 </head>
 <body>
@@ -172,7 +262,7 @@
         <div class="company-name">Horizon Metals</div>
         <div class="doc-title">Product Catalog</div>
         <div class="contact-info">
-            📞 0912667771 | 📧 horizonmetals@gmail.com | 📍 Addis Ababa, Ethiopia
+             0912667771 |  horizonmetals@gmail.com |  Bale Robe, Oromiya , Ethiopia
         </div>
     </div>
 
@@ -209,7 +299,7 @@
                 
                 @if($include_cost_price)
                     <th style="width: 12%;" class="right">Purchase Price</th>
-                    <th style="width: 13%;" class="center">Other Costs</th>
+                    <th style="width: 13%;" class="right">Additional Costs</th>
                 @endif
                 
                 @if($include_selling_price)
@@ -223,14 +313,14 @@
                 <td class="center">{{ $index + 1 }}</td>
                 <td>{{ $product->name }}</td>
                 <td>{{ $product->category?->name ?? 'N/A' }}</td>
-                <td class="center">{{ $product->unit_type }}</td>
+                <td class="center">{{ $product->unit?->label() ?? 'N/A' }}</td>
                 <td class="center {{ $product->current_stock <= 0 ? 'out-of-stock' : ($product->current_stock < 10 ? 'low-stock' : '') }}">
                     {{ number_format($product->current_stock, 2) }}
                 </td>
                 
                 @if($include_cost_price)
                     <td class="right">{{ number_format($product->purchase_price, 2) }}</td>
-                    <td class="manual-entry center">_____________</td>
+                    <td class="right">{{ number_format($product->additional_costs ?? 0, 2) }}</td>
                 @endif
                 
                 @if($include_selling_price)
@@ -250,8 +340,7 @@
     {{-- Footer --}}
     <div class="footer">
         @if($include_cost_price)
-            <strong>Note:</strong> Purchase prices and "Other Costs" column are for internal use only. 
-            Use the "Other Costs" column to manually calculate additional expenses (transport, loading, etc.).
+            <strong>Note:</strong> Purchase prices and Additional Costs are for internal use only.
             <br>
         @endif
         This catalog was generated on {{ $generated_at }}. Prices and stock levels are subject to change.

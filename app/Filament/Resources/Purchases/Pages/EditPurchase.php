@@ -91,5 +91,12 @@ class EditPurchase extends EditRecord
                     ->send();
             }
         }
+
+        // CRITICAL: Trigger the observer to synchronize payments/payables when items change
+        // This ensures the PurchaseObserver::updated() method runs to sync payment amounts
+        // Even if the Purchase model itself hasn't changed, the items may have changed
+        // We need to mark the model as dirty and save it to trigger the updated event
+        $purchase->updated_at = now();
+        $purchase->save();
     }
 }

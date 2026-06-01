@@ -140,34 +140,6 @@ class SalesTable
                                 ->send();
                         }
                     }),
-
-                // Cancel Sale Action
-                Action::make('cancel')
-                    ->label('Cancel')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->modalHeading('Cancel Sale')
-                    ->modalDescription('This will restore stock if the sale was completed.')
-                    ->visible(fn (Sale $record) => $record->status !== SaleStatus::CANCELLED)
-                    ->action(function (Sale $record) {
-                        try {
-                            $service = app(SaleService::class);
-                            $service->cancelSale($record);
-
-                            Notification::make()
-                                ->success()
-                                ->title('Sale Cancelled')
-                                ->body('Stock has been restored.')
-                                ->send();
-                        } catch (\Exception $e) {
-                            Notification::make()
-                                ->danger()
-                                ->title('Error')
-                                ->body($e->getMessage())
-                                ->send();
-                        }
-                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

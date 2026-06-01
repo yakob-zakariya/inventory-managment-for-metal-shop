@@ -8,7 +8,6 @@ use App\Filament\Resources\Purchases\PurchaseResource;
 use App\Models\Account;
 use App\Models\Payable;
 use App\Models\Payment;
-use App\Services\PurchaseService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
@@ -24,17 +23,12 @@ class CreatePurchase extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Calculate total from items
-        $total = 0;
-        if (isset($data['items'])) {
-            foreach ($data['items'] as $item) {
-                $total += floatval($item['total_price'] ?? 0);
-            }
-        }
-        $data['total_amount'] = $total;
+        // ✅ Always start purchases as PENDING
+        // Use "Mark as Received" action in the table to complete the purchase
+        $data['status'] = PurchaseStatus::PENDING;
 
         // Store payment data temporarily for cash purchases
-        if ($data['payment_type'] === 'cash') {
+        if ($data['payment_type'] === PaymentType::CASH->value || $data['payment_type'] === 'cash') {
             $this->paymentAccountId = $data['payment_account_id'] ?? null;
             $this->paymentMethod = $data['payment_method'] ?? 'cash';
         }
@@ -50,7 +44,15 @@ class CreatePurchase extends CreateRecord
         // ✅ Validate CASH purchases BEFORE creating the record
         $data = $this->data;
 
-        if ($data['payment_type'] === 'cash') {
+        // Calculate total from items
+        $total = 0;
+        if (isset($data['items'])) {
+            foreach ($data['items'] as $item) {
+                $total += floatval($item['total_price'] ?? 0);
+            }
+        }
+
+        if ($data['payment_type'] === PaymentType::CASH->value || $data['payment_type'] === 'cash') {
             // Check payment fields are filled
             if (empty($this->paymentAccountId)) {
                 Notification::make()
@@ -76,8 +78,6 @@ class CreatePurchase extends CreateRecord
                 throw new Halt;
             }
 
-            $total = $data['total_amount'] ?? 0;
-
             if ($total > 0 && $account->balance < $total) {
                 Notification::make()
                     ->danger()
@@ -96,27 +96,9 @@ class CreatePurchase extends CreateRecord
     {
         $purchase = $this->record;
 
-        // ✅ 1. STOCK MOVEMENTS (if status is completed)
-        if ($purchase->status === PurchaseStatus::COMPLETED) {
-            try {
-                app(PurchaseService::class)->completePurchase($purchase);
-
-                Notification::make()
-                    ->success()
-                    ->title('Stock Updated')
-                    ->body('Inventory updated automatically.')
-                    ->send();
-            } catch (\Exception $e) {
-                Notification::make()
-                    ->danger()
-                    ->title('Stock Error')
-                    ->body($e->getMessage())
-                    ->send();
-            }
-        }
-
-        // ✅ 2. CASH PURCHASE - Create payment
-        // CRITICAL FIX: Compare with PaymentType::CASH enum, not string 'cash'
+        // ✅ CASH PURCHASE - Create payment immediately
+        // Note: Purchase starts as PENDING. Stock is NOT updated yet.
+        // Use "Mark as Received" action in the table to complete the purchase and update stock.
         if ($purchase->payment_type === PaymentType::CASH && $this->paymentAccountId) {
             try {
                 $account = Account::findOrFail($this->paymentAccountId);
@@ -140,7 +122,7 @@ class CreatePurchase extends CreateRecord
                 Notification::make()
                     ->success()
                     ->title('Payment Recorded')
-                    ->body('ETB '.number_format($purchase->total_amount, 2)." paid from {$account->name}")
+                    ->body('ETB '.number_format($purchase->total_amount, 2)." paid from {$account->name}. Use 'Mark as Received' to update stock.")
                     ->send();
             } catch (\Exception $e) {
                 Notification::make()
@@ -151,7 +133,13 @@ class CreatePurchase extends CreateRecord
             }
         }
 
-        // ✅ 3. CREDIT PURCHASE - Payable is created automatically by PurchaseService::completePurchase()
-        // No need to create it here to avoid duplicates
+        // ✅ CREDIT PURCHASE - Payable will be created when you mark as received
+        if ($purchase->payment_type === PaymentType::CREDIT) {
+            Notification::make()
+                ->info()
+                ->title('Purchase Created')
+                ->body("Use 'Mark as Received' to complete the purchase and create the payable.")
+                ->send();
+        }
     }
 }

@@ -34,13 +34,14 @@ class PurchasesTable
                     ->date()
                     ->sortable(),
 
-                TextColumn::make('expected_date')
-                    ->date()
-                    ->sortable()
-                    ->toggleable(),
+                // TextColumn::make('expected_date')
+                //     ->date()
+                //     ->sortable()
+                //     ->toggleable(),
 
                 TextColumn::make('total_amount')
-                    // ->money('ETB')
+                    ->label('Total Amount')
+                    ->money('ETB')
                     ->sortable()
                     ->getStateUsing(fn ($record) => $record->total_amount),
 
@@ -96,34 +97,6 @@ class PurchasesTable
                                 ->success()
                                 ->title('Purchase Completed')
                                 ->body('Stock has been updated automatically.')
-                                ->send();
-                        } catch (\Exception $e) {
-                            Notification::make()
-                                ->danger()
-                                ->title('Error')
-                                ->body($e->getMessage())
-                                ->send();
-                        }
-                    }),
-
-                // Cancel Purchase Action
-                Action::make('cancel')
-                    ->label('Cancel')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->modalHeading('Cancel Purchase')
-                    ->modalDescription('This will reverse any stock movements if the purchase was completed.')
-                    ->visible(fn (Purchase $record) => $record->status !== PurchaseStatus::CANCELLED)
-                    ->action(function (Purchase $record) {
-                        try {
-                            $service = app(PurchaseService::class);
-                            $service->cancelPurchase($record);
-
-                            Notification::make()
-                                ->success()
-                                ->title('Purchase Cancelled')
-                                ->body('Stock movements have been reversed.')
                                 ->send();
                         } catch (\Exception $e) {
                             Notification::make()

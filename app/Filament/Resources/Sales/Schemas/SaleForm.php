@@ -13,8 +13,9 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;  // ✅ CORRECT import
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 
@@ -53,13 +54,8 @@ class SaleForm
                     ->required()
                     ->default('cash')
                     ->live()
-                    ->columnSpan(1),
-
-                Select::make('status')
-                    ->options(SaleStatus::class)
-                    ->required()
-                    ->default(SaleStatus::DRAFT)
-                    ->columnSpan(1),
+                    ->columnSpan(1)
+                    ->helperText('Cash: Payment recorded immediately. Credit: Receivable created for later collection.'),
 
                 Textarea::make('notes')
                     ->rows(2)
@@ -223,7 +219,7 @@ class SaleForm
                                         $set('item_profit', $profit);
                                     })
                                     ->rules([
-                                        fn ($get) => function ($attribute, $value, $fail) use ($get) {
+                                        fn ($get, $livewire) => function ($attribute, $value, $fail) use ($get, $livewire) {
                                             $productId = $get('product_id');
                                             if (! $productId) {
                                                 return;
@@ -234,7 +230,28 @@ class SaleForm
                                                 return;
                                             }
 
-                                            $availableStock = $product->current_stock ?? 0;
+                                            $currentStock = $product->current_stock ?? 0;
+
+                                            // Bug 3 Fix: When editing a completed sale, restore the original quantity first
+                                            // This allows users to increase quantities within the available stock
+                                            $originalQuantity = 0;
+
+                                            // Check if we're editing an existing sale item
+                                            if ($livewire instanceof EditRecord) {
+                                                $record = $livewire->getRecord();
+                                                $itemId = $get('id'); // Get the item ID from the repeater
+
+                                                if ($record && $itemId && $record->status === SaleStatus::COMPLETED) {
+                                                    // Find the original item to get its quantity
+                                                    $originalItem = $record->items()->where('id', $itemId)->first();
+                                                    if ($originalItem && $originalItem->product_id == $productId) {
+                                                        $originalQuantity = $originalItem->quantity;
+                                                    }
+                                                }
+                                            }
+
+                                            // Calculate available stock: current + original (will be restored)
+                                            $availableStock = $currentStock + $originalQuantity;
 
                                             if ($value > $availableStock) {
                                                 $fail("Insufficient stock for {$product->name}. Available: {$availableStock}, Requested: {$value}");
@@ -321,7 +338,16 @@ class SaleForm
                                 fn ($action) => $action->requiresConfirmation()
                             )
                             ->collapsible()
-                            ->itemLabel(fn (array $state): ?string => Product::find($state['product_id'])?->name ?? 'New Item'),
+                            ->collapsed(false)
+                            ->cloneable()
+                            ->reorderable()
+                            ->itemLabel(fn (array $state): ?string => Product::find($state['product_id'])?->name ?? 'New Item')
+                            ->addActionLabel('➕ Add Another Product')
+                            ->reorderableWithButtons()
+                            ->defaultItems(1)
+                            ->extraAttributes([
+                                'class' => 'repeater-with-spacing',
+                            ]),
 
                         // ✅ TOTALS - Clean grid layout
                         Grid::make(2)

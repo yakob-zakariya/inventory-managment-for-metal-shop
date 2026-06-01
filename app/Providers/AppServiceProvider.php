@@ -2,7 +2,12 @@
 
 namespace App\Providers;
 
-
+use App\Models\CapitalTransaction;
+use App\Models\Purchase;
+use App\Models\Sale;
+use App\Observers\CapitalTransactionObserver;
+use App\Observers\PurchaseObserver;
+use App\Observers\SaleObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        \App\Models\CapitalTransaction::observe(\App\Observers\CapitalTransactionObserver::class);
+        CapitalTransaction::observe(CapitalTransactionObserver::class);
+        Purchase::observe(PurchaseObserver::class);
+        Sale::observe(SaleObserver::class);
     }
 }

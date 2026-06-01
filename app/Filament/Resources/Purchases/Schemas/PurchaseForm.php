@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Purchases\Schemas;
 
 use App\Enums\PaymentMethod;
-use App\Enums\PurchaseStatus;
 use App\Models\Account;
 use App\Models\Product;
 use Filament\Forms\Components\DatePicker;
@@ -43,10 +42,10 @@ class PurchaseForm
                     ->default(now())
                     ->columnSpan(1),
 
-                DatePicker::make('expected_date')
-                    ->label('Expected Delivery')
-                    ->after('purchase_date')
-                    ->columnSpan(1),
+                // DatePicker::make('expected_date')
+                //     ->label('Expected Delivery')
+                //     ->after('purchase_date')
+                //     ->columnSpan(1),
 
                 // Payment Type - THIS IS THE KEY FIELD
                 Select::make('payment_type')
@@ -58,13 +57,8 @@ class PurchaseForm
                     ->required()
                     ->default('cash')
                     ->live() // ✅ CRITICAL - Makes it reactive
-                    ->columnSpan(1),
-
-                Select::make('status')
-                    ->options(PurchaseStatus::class)
-                    ->required()
-                    ->default(PurchaseStatus::PENDING)
-                    ->columnSpan(1),
+                    ->columnSpan(1)
+                    ->helperText('Cash: Payment recorded immediately. Credit: Payable created for later payment.'),
 
                 Textarea::make('notes')
                     ->rows(2)
@@ -266,9 +260,18 @@ class PurchaseForm
                             ->required()
                             ->minItems(1)
                             ->live()
-                            ->addActionLabel('+ Add Item')
+                            ->addActionLabel('➕ Add Another Product')
                             ->collapsible()
-                            ->itemLabel(fn (array $state): ?string => Product::find($state['product_id'])?->name ?? 'New Item'),
+                            ->collapsed(false)
+                            ->cloneable()
+                            ->reorderable()
+                            ->reorderableWithButtons()
+                            ->itemLabel(fn (array $state): ?string => Product::find($state['product_id'])?->name ?? 'New Item')
+                            ->defaultItems(1)
+                            ->extraItemActions([])
+                            ->extraAttributes([
+                                'class' => 'repeater-with-spacing',
+                            ]),
 
                         Placeholder::make('grand_total')
                             ->label('📊 TOTAL AMOUNT')

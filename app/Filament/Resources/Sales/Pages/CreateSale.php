@@ -8,7 +8,6 @@ use App\Filament\Resources\Sales\SaleResource;
 use App\Models\Account;
 use App\Models\Payment;
 use App\Models\Receivable;
-use App\Services\SaleService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -23,6 +22,9 @@ class CreateSale extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        // ✅ ALWAYS CREATE AS DRAFT - User must use "Complete Sale" action
+        $data['status'] = SaleStatus::DRAFT;
+
         // Calculate total from items
         $total = 0;
         if (isset($data['items'])) {
@@ -59,26 +61,10 @@ class CreateSale extends CreateRecord
     {
         $sale = $this->record;
 
-        // ✅ 1. STOCK MOVEMENTS (if status is completed)
-        if ($sale->status === SaleStatus::COMPLETED && $sale->items()->count() > 0) {
-            try {
-                app(SaleService::class)->completeSale($sale);
+        // ✅ NO AUTOMATIC STOCK MOVEMENT ON CREATION
+        // Stock is only updated when user clicks "Complete Sale" action
 
-                Notification::make()
-                    ->success()
-                    ->title('Stock Updated')
-                    ->body('Inventory updated automatically.')
-                    ->send();
-            } catch (\Exception $e) {
-                Notification::make()
-                    ->danger()
-                    ->title('Stock Error')
-                    ->body($e->getMessage())
-                    ->send();
-            }
-        }
-
-        // ✅ 2. CASH SALE - Create payment
+        // ✅ 1. CASH SALE - Create payment
         if ($sale->payment_type === PaymentType::CASH && $this->paymentAccountId) {
             try {
                 $account = Account::findOrFail($this->paymentAccountId);
@@ -113,7 +99,37 @@ class CreateSale extends CreateRecord
             }
         }
 
-        // ✅ 3. CREDIT SALE - Receivable is created automatically by SaleService::completeSale()
-        // No need to create it here to avoid duplicates
+        // ✅ 2. CREDIT SALE - Create receivable
+        if ($sale->payment_type === PaymentType::CREDIT) {
+            try {
+                Receivable::create([
+                    'customer_id' => $sale->customer_id,
+                    'sale_id' => $sale->id,
+                    'amount' => $sale->total_amount,
+                    'paid_amount' => 0,
+                    'remaining_balance' => $sale->total_amount,
+                    'due_date' => $sale->sale_date->addDays(30), // Default 30 days
+                ]);
+
+                Notification::make()
+                    ->success()
+                    ->title('Receivable Created')
+                    ->body('ETB '.number_format($sale->total_amount, 2).' receivable created')
+                    ->send();
+            } catch (\Exception $e) {
+                Notification::make()
+                    ->warning()
+                    ->title('Receivable Error')
+                    ->body($e->getMessage())
+                    ->send();
+            }
+        }
+
+        // ✅ 3. REMINDER - User must complete the sale
+        Notification::make()
+            ->info()
+            ->title('Sale Created as Draft')
+            ->body('Use the "Complete Sale" action to update stock levels.')
+            ->send();
     }
 }

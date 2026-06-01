@@ -170,10 +170,16 @@ class ProformaInvoiceGenerator extends Page
                                 ])
                                 ->columns(4)
                                 ->defaultItems(1)
-                                ->addActionLabel('Add Item')
-                                ->reorderable()
+                                ->addActionLabel('➕ Add Another Product')
                                 ->collapsible()
-                                ->itemLabel(fn (array $state): ?string => Product::find($state['product_id'])?->name ?? 'New Item'),
+                                ->collapsed(false)
+                                ->cloneable()
+                                ->reorderable()
+                                ->reorderableWithButtons()
+                                ->itemLabel(fn (array $state): ?string => Product::find($state['product_id'])?->name ?? 'New Item')
+                                ->extraAttributes([
+                                    'class' => 'repeater-with-spacing',
+                                ]),
                         ]),
 
                     Section::make('VAT & Pricing')

@@ -1,0 +1,61 @@
+/* Custom styling for repeater items in Purchase and Sale forms */
+
+/* Add spacing and border styling to repeater items */
+.repeater-with-spacing .fi-fo-repeater-item {
+    margin-bottom: 2rem !important;
+    padding: 1.5rem !important;
+    border: 3px solid rgb(59 130 246) !important; /* Thick blue border */
+    border-radius: 0.75rem !important;
+    background-color: rgb(219 234 254) !important; /* More visible light blue background */
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+    transition: all 0.2s ease-in-out;
+}
+
+/* Hover effect for better interactivity */
+.repeater-with-spacing .fi-fo-repeater-item:hover {
+    border-color: rgb(37 99 235) !important; /* Darker blue on hover */
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+    transform: translateY(-2px);
+}
+
+/* Dark mode support */
+.dark .repeater-with-spacing .fi-fo-repeater-item {
+    border-color: rgb(96 165 250) !important;
+    background-color: rgb(30 58 138) !important;
+}
+
+.dark .repeater-with-spacing .fi-fo-repeater-item:hover {
+    border-color: rgb(147 197 253) !important;
+}
+
+/* Add extra spacing between the last item and the "Add Another Product" button */
+.repeater-with-spacing .fi-fo-repeater-items {
+    margin-bottom: 1.5rem !important;
+}
+
+/* Add a visual separator line between items */
+.repeater-with-spacing .fi-fo-repeater-item:not(:last-child)::after {
+    content: '';
+    display: block;
+    position: absolute;
+    bottom: -1rem;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(to right, transparent, rgb(59 130 246), transparent);
+}
+
+/* Make the item header more prominent */
+.repeater-with-spacing .fi-fo-repeater-item-header {
+    background-color: rgb(191 219 254) !important;
+    padding: 0.75rem 1rem !important;
+    margin: -1.5rem -1.5rem 1rem -1.5rem !important;
+    border-radius: 0.5rem 0.5rem 0 0 !important;
+    border-bottom: 2px solid rgb(59 130 246) !important;
+    font-weight: 600 !important;
+}
+
+.dark .repeater-with-spacing .fi-fo-repeater-item-header {
+    background-color: rgb(30 64 175) !important;
+    border-bottom-color: rgb(96 165 250) !important;
+}

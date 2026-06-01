@@ -115,5 +115,18 @@ class EditSale extends EditRecord
                     ->send();
             }
         }
+
+        // CRITICAL: Trigger the observer to synchronize payments/receivables when items change
+        // This ensures the SaleObserver::updated() method runs to sync payment/receivable amounts
+        // Even if the Sale model itself hasn't changed, the items may have changed
+        // Force trigger the updated event by touching the notes field
+        $currentNotes = $sale->notes ?? '';
+        $sale->notes = $currentNotes.' ';
+        $sale->save();
+        // Trim the extra space we added
+        if ($sale->notes !== $currentNotes) {
+            $sale->notes = $currentNotes;
+            $sale->saveQuietly(); // Save without triggering observer again
+        }
     }
 }
